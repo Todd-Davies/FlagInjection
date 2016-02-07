@@ -120,14 +120,12 @@ public final class Flags {
       protected void configure() {
       }
 
-      @SuppressWarnings("unused")
       @Provides
       @RuntimeArguments
       String[] commandLineArguments() {
         return args;
       }
 
-      @SuppressWarnings("unused")
       @Provides
       @Singleton
       Options options(Map<Flag, Type> flagsMap) {
@@ -142,7 +140,6 @@ public final class Flags {
         return options;
       }
 
-      @SuppressWarnings("unused")
       @Provides
       @Singleton
       CommandLine commandLine(Options options, @RuntimeArguments String[] args) {
@@ -168,7 +165,6 @@ public final class Flags {
     private final Options options;
     private final String main;
 
-    @SuppressWarnings("unused")
     // injected
     @Inject
     FlagBootstrapModule(
