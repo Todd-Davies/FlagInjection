@@ -17,13 +17,8 @@
 package edu.uchicago.lowasser.flaginjection.example;
 
 import com.google.common.base.Objects;
-import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
-import com.google.inject.Provides;
-import com.google.inject.name.Named;
-
-import edu.uchicago.lowasser.flaginjection.Flag;
 import edu.uchicago.lowasser.flaginjection.Flags;
 
 /**
@@ -33,19 +28,11 @@ import edu.uchicago.lowasser.flaginjection.Flags;
  */
 public class ExampleFlaggedClass {
   private final int flaggedInteger;
+  private final String stringWithDefault;
 
-  @Inject(optional = true)
-  @Flag(
-      name = "stringWithDefault",
-      optional = true,
-      description = "If this is omitted from the command line, it isn't injected and "
-          + "stays on the default value")
-  private String stringWithDefault = "default";
-
-  @Inject
-  ExampleFlaggedClass(
-      @Flag(name = "flaggedInteger", description = "Required integer-valued flag") int flaggedInteger) {
-    this.flaggedInteger = flaggedInteger;
+  ExampleFlaggedClass() {
+    this.flaggedInteger = ExampleFlags.getFlaggedInteger();
+    this.stringWithDefault = ExampleFlags.getStringWithDefault();
   }
 
   @Override
@@ -60,20 +47,9 @@ public class ExampleFlaggedClass {
   public static void main(String[] args) {
     Injector injector = Flags.bootstrapFlagInjector(
         args,
-        Flags.flagBindings(ExampleFlaggedClass.class),
-        new AbstractModule() {
-
-          @Override
-          protected void configure() {
-          }
-
-          @Provides
-          @Named("main")
-          public String mainName() {
-            // To print help messages, Apache CLI needs the name of the main class.
-            return "ExampleFlaggedClass";
-          }
-        });
+        ExampleFlaggedClass.class.getName(),
+        ImmutableList.<String>of("edu.uchicago.lowasser.flaginjection.example"),
+        new ExampleFlagsModule());
     ExampleFlaggedClass example = injector.getInstance(ExampleFlaggedClass.class);
     System.out.println(example);
   }

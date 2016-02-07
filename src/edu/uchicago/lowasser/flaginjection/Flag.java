@@ -30,5 +30,5 @@ public @interface Flag {
 
   String description() default "";
   
-  boolean optional() default false;
+  boolean optional() default false; 
 }

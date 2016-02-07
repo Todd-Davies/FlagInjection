@@ -30,6 +30,7 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.name.Named;
 import com.google.inject.util.Modules;
+import com.google.inject.util.Providers;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -38,6 +39,7 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
@@ -48,6 +50,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
+import org.reflections.Reflections;
 
 /**
  * Framework for pulling together the fields annotated with @Flag from a collection of classes, and
@@ -112,7 +115,10 @@ public final class Flags {
     }
   }
 
-  public static Injector bootstrapFlagInjector(final String[] args, Module... baseModules) {
+  public static Injector bootstrapFlagInjector(final String[] args,
+      String mainClassName,
+      List<String> packages,
+      Module... baseModules) {
     Logger logger = Logger.getLogger("org.learningu.scheduling.flags.Flags");
     AbstractModule linkingModule = new AbstractModule() {
 
@@ -151,11 +157,21 @@ public final class Flags {
       }
     };
     logger.fine("Built Options module");
-    Injector baseInjector = Guice.createInjector(Modules.combine(Iterables.concat(
-        Arrays.asList(baseModules),
-        ImmutableList.of(linkingModule))));
+    Injector baseInjector = Guice.createInjector(new FlagErrorModule(mainClassName),
+        Modules.combine(Iterables.concat(
+          Arrays.asList(baseModules),
+          ImmutableList.of(linkingModule))));
     logger.fine("Bootstrapping flag injector with command line arguments");
-    return baseInjector.createChildInjector(baseInjector.getInstance(FlagBootstrapModule.class));
+    Injector createdInjector = baseInjector.createChildInjector(baseInjector.getInstance(FlagBootstrapModule.class));
+    // Use reflection to instantiate the variables in FlagClass classes
+    for (String packageName : packages) {
+      Reflections reflections = new Reflections(packageName);
+      Set<Class<? extends FlagsClass>> classes = reflections.getSubTypesOf(FlagsClass.class);
+      for (Class<? extends FlagsClass> flagClass : classes) {
+        createdInjector.getInstance(flagClass);
+      }
+    }
+    return createdInjector;
   }
 
   @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -192,6 +208,7 @@ public final class Flags {
 
           if (result == null) {
             if (flagAnnotation.optional()) {
+              bind(literal).annotatedWith(flagAnnotation).toProvider(Providers.of(null));
               continue;
             } else {
               throw new RuntimeException();
@@ -206,6 +223,24 @@ public final class Flags {
           }
         }
       }
+    }
+  }
+  
+  private static final class FlagErrorModule extends AbstractModule {
+    private final String name;
+    
+    FlagErrorModule(String name) {
+      this.name = name;
+    }
+    
+    @Override
+    protected void configure() {}
+
+    @Provides
+    @Named("main")
+    public String mainName() {
+      // To print help messages, Apache CLI needs the name of the main class.
+      return name;
     }
   }
 }
